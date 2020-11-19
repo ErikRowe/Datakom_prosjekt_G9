@@ -1,0 +1,88 @@
+<!DOCTYPE html> <!--Defines the HTML document-->
+<html lang="no"> <!--Sets the language for the webpage-->
+<head> <!--Defined the head element, which is to say the top of the webpage. Sometimes menus are placed here-->
+    <meta charset="UTF-8"> <!--Sets the encoding of the webpage-->
+    <title>Datakom || Kontrollpanel</title> <!--Sets the title of the webpage-->
+    <link rel="stylesheet" href="style.css"> <!--Imports the stylesheet of the webpage. It gives element style-->
+    <script src="libraries/socket.io.js"></script><!--Load Socket.io library-->
+    <script src="libraries/Chart.min.js"></script> <!--Load Chart.js library-->
+    <script>
+        var dataArr1 = [5, 10, 20, 50]; /* The chart data for "Data 1", altering this array/list changes the graph data */
+        var dataArr2 = [2, 100, 50, 130, 20, 10, 50, 420, 50, 10]; /* The chart data for "Data 2", altering this array/list changes the graph data */
+    </script>
+</head> <!-- the "/" indicates that the element is closed/stopped (you are done defining it)-->
+<body> <!--Defines the body element. This is traditionally where the main content is placed. Its the "middle" of the webpage-->
+
+    <div id="main-content"> <!--The main container of the webpage/the main HTML "tag"-->
+
+          <div id="control-content"> <!--Just another HTML tag, this one defines the control panel container-->
+
+              <div class="control-module" id="control-module-1"> <!--This defines the second box with the buttons in it (upper right)-->
+
+                    <!-- Content of second box-->
+                  <div class="stat-container dragElement"> <!--Here the dragElement is the entire box-->
+                      <div class="btn-title-con"> <!--But one can only start to drag it if one clicks on the top-box where the title is -->
+                          <h2 class="control-title">Status</h2> <!--Title in the title-box-->
+                      </div>
+                      <div class="one_row">
+                          <h3 class="slider-title">Toggle Feedback</h3>
+                          <label class="switch">
+                              <input type="checkbox" id="chk1" onclick="requestDataFromBoard(this,1000)">
+                              <span class="slider round"></span>
+                          </label>
+                          <div class="led-box">
+                              <div class="led-green"></div>
+                          </div>
+                      </div>
+                      <div class="one_row">
+                          <h3 class="slider-title">Toggle Door Controll</h3> <!--Title in the title-box-->
+                          <label class="switch">
+                              <input type="checkbox" id="chk2" onclick="changeLEDState(this)">
+                              <span class="slider round"></span>
+                          </label>
+                      </div>
+                      <div class="one_row">
+                          <h3 class="slider-title">Toggle Camera</h3> <!--Title in the title-box-->
+                          <label class="switch">
+                              <input type="checkbox" id="chk3" onclick="changeLEDState(this)">
+                              <span class="slider round"></span>
+                          </label>
+                      </div>
+                      <div class="one_row">
+                          <h3 class="slider-title">Engage Alarm</h3> <!--Title in the title-box-->
+                          <label class="switch">
+                              <input type="checkbox" id="chk4" onclick="changeLEDState(this)">
+                              <span class="slider round"></span>
+                          </label>
+                      </div>
+                  </div>
+
+              </div>
+
+              <div class="control-module" id="control-module-2"> <!--This defines the fourth box with nothing currently in it (lower right)-->
+                  <!-- Rounded switch -->
+                  <label class="switch">
+                      <h3 class="control-title">Status</h3> <!--Title in the title-box-->
+                      <input type="checkbox" id="mySlider" onclick="toggleSlider();changeLEDState(toggle)">
+                      <span class="slider round"></span>
+                  </label>
+
+              </div>
+
+
+          </div>
+
+    </div>
+
+
+<!--Script imports-->
+    <!--This import is like the library imports in the head(top) element. It is placed here because certain HTML elements need to be defined before it can work-->
+    <script src="libraries/drag-drop.js"></script> <!--This library gives the different boxes the ability to be dragged. If you want to remove it be sure to remove the drag elements defined earlier-->
+
+    <!--These scripts you can alter. They provide functionality/functions and are not libraries. View their purpose as splitting up your Arduino code in to different files for organization-->
+    <script src="script/chartoperation.js"></script> <!--This allow yo to change how the graph works, how many graphs, colors, titles etc.-->
+    <script src="script/socket.js"></script> <!--This allows you to change the property of Socket.io (the WebSockets) ALL SOCKET.IO FUNCTIONS ARE ALSO PLACED HERE!-->
+   <!-- <script src="script/script.js"></script>--> <!--This is the script for general webpage functionality. How will the keyboard work and more. Here you can add new things if you wish-->
+
+</body>
+</html>
