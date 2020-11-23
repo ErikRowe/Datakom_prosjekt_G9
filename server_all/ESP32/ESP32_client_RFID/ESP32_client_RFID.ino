@@ -8,12 +8,14 @@
 
 WiFiMulti WiFiMulti; //Declare an instane of the WiFiMulti library
 SocketIoClient webSocket; //Decalre an instance of the Socket.io library
-const char* ssid = "Fn-2187";
-const char* password = "hyperdeath";
+const char* ssid = "PolygondwanaLAN";
+const char* password = "DrygolinOljedekkbeis";
 const uint16_t port = 2520;
-const char* host = "62.249.189.153";
+const char* host = "95.34.225.239";
 int prev_LEDState = 0;
-char RFIDcontent; 
+unsigned long time_now = 0; //Used to time the scanner function.
+int interval = 1000;
+int DoorState;
 
 #define SS_PIN 21
 #define RST_PIN 22
@@ -29,25 +31,10 @@ void event(const char * payload, size_t length) { //Default event, what happens 
   Serial.printf("got message: %s\n", payload);
 }
 
-//What we want the ESP32 to do if an unauthoirzed card is scanned
-void unauthorizedCard(const char * unauthorizedData, size_t length) {
-    Serial.println("Access denied");
-
-    //Data conversion
-    String dataString(unauthorizedData);
-    int unauth = dataString.toInt();
-
-    if (unauth == 1){
-      digitalWrite(LED_R, HIGH); //YOU ARE UNAUTHORIZED, GIT
-    }   
-    else {
-      digitalWrite(LED_R, LOW);
-    }
-}
-
-/*
 //The scanners general behaviour such as looking for/reading cards.
 void scanner() {
+  long rfidKey;
+  
   // Look for new cards
   if ( ! mfrc522.PICC_IsNewCardPresent()) 
   {
@@ -57,66 +44,121 @@ void scanner() {
   if ( ! mfrc522.PICC_ReadCardSerial()) 
   {
     return;
-  }   
+  } 
+
+  if (millis() >= time_now + interval){
+    /*
     //Show UID on serial monitor
-    Serial.println("UID tag :");
+    //Serial.println("UID tag :");
     String content= "";
     byte letter;
     for (byte i = 0; i < mfrc522.uid.size; i++) 
     {
-       Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-       Serial.println(mfrc522.uid.uidByte[i], HEX);
-       content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+       //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+       //Serial.println(mfrc522.uid.uidByte[i], HEX);
+       content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : ""));
        content.concat(String(mfrc522.uid.uidByte[i], HEX));
     }
     Serial.println();
-    Serial.print("Message : ");
+    Serial.print("UIDkey : ");
     content.toUpperCase();
     
-    if (RFIDcontent = content.substring(1) == "0B 37 23 1B") //change here the UID of the card/cards that you want to give access
-    {
-      //Authorized card, tell the server
-      char str[10]; //Decalre a char array (needs to be char array to send to server)
-      itoa(RFIDcontent, str, 10); //Use a special formatting function to get the char array as we want to, here we put the analogRead value from port 27 into the str variable
+    char str[13]; //Decalre a char array (needs to be char array to send to server)
+    
+    content.toCharArray(str,13);
+    Serial.println(str);
+    
+    webSocket.emit("RFIDcontent", str); //Sends the RFID tag to the server
+    */
+      rfidKey =  mfrc522.uid.uidByte[0] << 24;
+      rfidKey += mfrc522.uid.uidByte[1] << 16;
+      rfidKey += mfrc522.uid.uidByte[2] <<  8;
+      rfidKey += mfrc522.uid.uidByte[3];
+      
+      char str[11]; //Decalre a char array (needs to be char array to send to server)
+ 
+      itoa(rfidKey, str, 11); //Use a special formatting function to get the char array as we want to, here we put the analogRead value from port 27 into the str variable
       Serial.print("ITOA TEST: ");
       Serial.println(str);
+
       
-      webSocket.emit("420", str); //Signals that the user is authorized and lit
-      webSocket.emit("dataFromBoard", str); //Sends the RFID tag to the server
+ 
+      webSocket.emit("RFIDcontent", str); //Here the data is sendt to the server and then the server sends it to the webpage
+      //Str indicates the data that is sendt every timeintervall, you can change this to "250" and se 250 be graphed on the webpage
+    time_now = millis();
   }
-        
-   else   
-   {
-      //Unauthorized card, murder
-      char str[10]; //Declare a char array (needs to be char array to send to server)
-      itoa(RFIDcontent, str, 10); //Use a special formatting function to get the char array as we want to, here we put the analogRead value from port 27 into the str variable
-      Serial.print("ITOA TEST: ");
-      Serial.println(str);
-      
-      webSocket.emit("66", str); //Signals that the user is unauthorized
-      webSocket.emit(RFIDcontent, str); //Sends the RFID tag to the server
-      //Str indicates the data that is sendt every timeintervall, you can change this to "250" and se 250 be graphed on the webpage      
-    }
 }
-*/
+
+#define HALL_PIN 5
+
+//Uses the hall effect sensor to sense if the door is closed or not
+void doorState() {
+  int sensorState = digitalRead(HALL_PIN);
+  char str[10];
+  
+  if (sensorState != 0  && millis()> time_now + interval){
+  
+    itoa(1, str, 10);
+    Serial.println("The door is open");
+    webSocket.emit("doorState", str);
+    time_now = millis();
+  }  
+}
+
 void doorOpen (const char * DoorStateData, size_t length){
   Serial.printf("Doorstate: %s\n", DoorStateData);
   Serial.println(DoorStateData);
   
   //Data conversion
   String dataString(DoorStateData);
-  int DoorState = dataString.toInt();
+  DoorState = dataString.toInt();
   
   if (DoorState == 1){
+    Serial.println("Opening door");
     servo1.write(180);
     digitalWrite(LED_G, HIGH);
   }
+  else if (DoorState == 2){
+    Serial.println("UNAUTHORIZED CARD");
+    digitalWrite(LED_R, HIGH);
+  }
   else {
+    Serial.println("Closing door");
     servo1.write(0);
-    digitalWrite(LED_G. LOW);
+    digitalWrite(LED_R, LOW);
+    digitalWrite(LED_G, LOW);
   } 
 }
 
+//Voltage divider with thermistor as analog input. This data should be pushed onto the server.
+float tempReader(int pin)
+{
+  float thermo_value, temp, thermo_voltage, thermo_resistance, resistor_voltage, ln;
+  //Resistor in voltage divider is 10kOhm
+  const int resistor = 10000;
+
+  //Reads the analog input from the thermistor
+  thermo_value = analogRead(pin);  
+  
+  //Scales the 12bit variable from the input to a voltage valure from 0-3.3V
+  thermo_voltage = thermo_value*3.3/4096;
+  
+  //Calculates the voltage across the resistor
+  resistor_voltage = 3.3-(thermo_voltage);
+  
+  //finds the resistance value of the thermistor
+  thermo_resistance = (resistor_voltage/thermo_voltage)*resistor; 
+  
+  //Calculates the natural logarithm of the thermistor resistance divided by the resistor resistance.
+  ln = log(thermo_resistance/resistor);
+  
+  //Calculates the temperature in kelvin the resistances. Assumes 300k as base temperature (T0).
+  temp = 1.00/((1/300.00)+((1/3950.00)*ln));
+  
+  //Translates temp valure from kelvin to celcius.
+  temp -= 273.15;  
+  return temp;
+}
 
 void dataRequest(const char * DataRequestData, size_t length) {//This is the function that is called everytime the server asks for data from the ESP32
   Serial.printf("Datarequest Data: %s\n", DataRequestData);
@@ -130,24 +172,25 @@ void dataRequest(const char * DataRequestData, size_t length) {//This is the fun
   Serial.println(RequestState);
 
   if(RequestState == 0) { //If the datarequest gives the variable 0, do this (default)
+
+    char str[20];
+    char str1[10]; //Decalre a char array (needs to be char array to send to server)
+    char str2[10];
+    itoa(tempReader(THERMO_PIN), str1, 10); //Use a special formatting function to get the char array as we want to, here we put the analogRead value from port 27 into the str variable
+ //   Serial.print("ITOA TEST: ");
+ //   Serial.println(str)   
+    itoa(DoorState, str2, 10);
+
+    strcpy(str, str1);
+    strcat(str, str2);
     
-    char str[10]; //Decalre a char array (needs to be char array to send to server)
-    itoa(analogRead(34), str, 10); //Use a special formatting function to get the char array as we want to, here we put the analogRead value from port 27 into the str variable
-    Serial.print("ITOA TEST: ");
-    Serial.println(str);
-    
-    webSocket.emit("dataFromBoard", str); //Here the data is sendt to the server and then the server sends it to the webpage
-    //Str indicates the data that is sendt every timeintervall, you can change this to "250" and se 250 be graphed on the webpage
+    webSocket.emit("dataFromBoard", str);    
   }
 }
 
 void setup() {
   
     Serial.begin(9600); //Start the serial monitor  
-/*    pinMode(18,OUTPUT);
-    pinMode(19,OUTPUT);
-    pinMode(32,OUTPUT);
-    pinMode(33,OUTPUT); */
 
     SPI.begin();          // Initiate  SPI bus
     mfrc522.PCD_Init();   // Initiate MFRC522
@@ -155,6 +198,7 @@ void setup() {
     pinMode(LED_R, OUTPUT);
     pinMode(SERVO_PIN, OUTPUT);
     pinMode(THERMO_PIN, INPUT);
+    pinMode(HALL_PIN, INPUT);
     servo1.attach(SERVO_PIN);
 
     Serial.setDebugOutput(true); //Set debug to true (during ESP32 booting)
@@ -165,7 +209,7 @@ void setup() {
 
       for(uint8_t t = 4; t > 0; t--) { //More debugging
           Serial.printf("[SETUP] BOOT WAIT %d...\n", t);
-          Serial.flush();
+         // Serial.flush();
           delay(1000);
       }
 
@@ -181,10 +225,8 @@ void setup() {
     //Here we declare all the different events the ESP32 should react to if the server tells it to.
     //a socket.emit("identifier", data) with any of the identifieres as defined below will make the socket call the functions in the arguments below
     webSocket.on("clientConnected", event); //For example, the socket.io server on node.js calls client.emit("clientConnected", ID, IP) Then this ESP32 will react with calling the event function
-
     webSocket.on("dataRequest", dataRequest);
-    webSocket.on("door", doorOpen);
- //   webSocket.on("rfid_scanner", scanner);
+    webSocket.on("DoorControl", doorOpen);
 
     webSocket.begin(host, port); //This starts the connection to the server with the ip-address/domainname and a port (unencrypted)
 
@@ -192,19 +234,12 @@ void setup() {
     Serial.println();
 }
 
-//Drive the car forwards or backwards (THIS IS JUST AN EXAMPLE AND NOT WHAT YOU HAVE TO USE IT FOR)
-void Drive(bool Direction){
 
-  if(Direction) {
-    //Turn motors one direction
-  } else {
-    //Turn it the other direction
-  }
-  
-}
 
 void loop() {
   webSocket.loop(); //Keeps the WebSocket connection running 
+  scanner();
+  doorState();
   //DO NOT USE DELAY HERE, IT WILL INTERFER WITH WEBSOCKET OPERATIONS
   //TO MAKE TIMED EVENTS HERE USE THE millis() FUNCTION OR PUT TIMERS ON THE SERVER IN JAVASCRIPT
 }
